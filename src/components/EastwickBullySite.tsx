@@ -126,7 +126,7 @@ const TRACKS = [
     id: "ewb007",
     title: "I'm Looter — Doc Elephant & T.Boston (prod. Sypooda)",
     album: "Underground Broadcasts",
-    src: "/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3.mp3",
+    src: "/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3",
     color: THEME.devils,
     tag: "LOOTER",
     x: 38,
