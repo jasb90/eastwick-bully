@@ -76,7 +76,7 @@ const TRACKS = [
     id: "ewb002",
     title: "Needs MM Purple Smoke",
     album: "Underground Broadcasts",
-    src: "/audio/needs%20mm%20purple%20smoke.mp3",
+    src: "/audio/needs-mm-purple-smoke.mp3",
     color: THEME.neon,
     tag: "PURPLE",
     x: 28,
@@ -86,7 +86,7 @@ const TRACKS = [
     id: "ewb003",
     title: "No Mood Swings",
     album: "Underground Broadcasts",
-    src: "/audio/no%20mood%20swings.mp3",
+    src: "/audio/no-mood-swings.mp3",
     color: THEME.turnpike,
     tag: "NO MOOD",
     x: 46,
@@ -96,7 +96,7 @@ const TRACKS = [
     id: "ewb004",
     title: "Dopeness ft. Pay-Dro, Rel Right",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/Dopeness%20Ft.%20Pay-Dro%2C%20Rel%20Right.mp3",
+    src: "/audio/dopeness-ft-pay-dro-rel-right.mp3",
     color: THEME.devils,
     tag: "DOPENESS",
     x: 66,
@@ -106,7 +106,7 @@ const TRACKS = [
     id: "ewb005",
     title: "Rap Life",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/rap%20life.mp3",
+    src: "/audio/rap-life.mp3",
     color: THEME.neon,
     tag: "RAP LIFE",
     x: 78,
@@ -126,7 +126,7 @@ const TRACKS = [
     id: "ewb007",
     title: "I'm Looter — Doc Elephant & T.Boston (prod. Sypooda)",
     album: "Underground Broadcasts",
-    src: "/audio/I%27m%20Looter-%20Doc%20Elephant%20%26%20T.Boston%20(prod.%20Sypooda).mp3",
+    src: "/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3.mp3",
     color: THEME.devils,
     tag: "LOOTER",
     x: 38,
@@ -136,7 +136,7 @@ const TRACKS = [
     id: "ewb008",
     title: "40's",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/40%27s.mp3",
+    src: "/audio/40s.mp3",
     color: THEME.turnpike,
     tag: "40s",
     x: 58,
@@ -146,7 +146,7 @@ const TRACKS = [
     id: "ewb009",
     title: "Lunch Money",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/lunch%20money.mp3",
+    src: "/audio/lunch-money.mp3",
     color: THEME.neon,
     tag: "LUNCH",
     x: 24,
@@ -156,7 +156,7 @@ const TRACKS = [
     id: "ewb010",
     title: "TONE SETTERS",
     album: "Underground Broadcasts",
-    src: "/audio/tone%20setters.mp3",
+    src: "/audio/tone-setters.mp3",
     color: THEME.devils,
     tag: "TONE",
     x: 32,
@@ -860,14 +860,20 @@ export default function EastwickBullySite() {
         ))}
 
         {/* audio */}
-        <audio
-          ref={audioRef}
-          onEnded={next}
-          muted={muted}
-          onError={(e) =>
-            setAudioErr((e.currentTarget && (e.currentTarget as HTMLAudioElement).src) || "Audio failed to load")
-          }
-        />
+     <audio
+  ref={audioRef}
+  preload="metadata"
+  playsInline
+  crossOrigin="anonymous"
+  onEnded={next}
+  muted={muted}
+  onError={(e) =>
+    setAudioErr(
+      (e.currentTarget && (e.currentTarget as HTMLAudioElement).src) ||
+        "Audio failed to load"
+    )
+  }
+/>
 
         {/* tone setters mini preview */}
         {index === toneIndex && <MiniVHSPreview url={TONE_SETTERS_EMBED} title="Tone Setters" />}
