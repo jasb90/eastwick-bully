@@ -1,13 +1,11 @@
 /** @type {import('next').NextConfig} */
-const isProd = process.env.GITHUB_ACTIONS === 'true';
-const basePath = isProd ? '/eastwick-bully' : '';
-
-export default {
-  output: 'export',
-  basePath,
-  assetPrefix: basePath ? `${basePath}/` : undefined,
-  images: { unoptimized: true },
-  trailingSlash: true,
+const nextConfig = {
+  reactStrictMode: true,
+  // No basePath or assetPrefix on Vercel
+  // If you ever need static export for GitHub Pages again, we’ll toggle via an env var.
 };
+
+export default nextConfig;
+
 
 
