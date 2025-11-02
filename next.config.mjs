@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  // If you’re deploying static/export later, you can add: output: 'export'
-  // images: { unoptimized: true }, // optional if you don’t need Next Image optimizations
-};
+  // If you use Pages or any subpath hosting:
+  // basePath: '/eastwick-bully',
+  // assetPrefix: '/eastwick-bully',
+  // trailingSlash: true,
+}
 
-export default nextConfig;
+export default nextConfig
+

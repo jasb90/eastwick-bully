@@ -29,7 +29,9 @@ const THEME = {
   ink: "#0B0F14", // near-black
   paper: "#F4F1E8", // off-white
 };
-
+// --- base path helper (works on root domains and subpaths like GitHub Pages) ---
+const BASE = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_BASE_PATH) || "";
+const asset = (p: string) => `${BASE}${p}`;
 // -----------------------------
 // TEXTURES + WALL STYLE (with parallax-ready positions)
 // -----------------------------
@@ -243,12 +245,14 @@ function usePlayer(list: typeof TRACKS) {
     };
   }, []);
 
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    el.src = current.src;
-    el.play().catch(() => {});
-  }, [index]);
+ useEffect(() => {
+   const el = audioRef.current;
+   if (!el) return;
+   // Prefix with base path so it works on subpath hosting (e.g. GitHub Pages)
+   el.src = asset(current.src);
+   el.play().catch(() => {});
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const toggle = () => {
     const el = audioRef.current;
