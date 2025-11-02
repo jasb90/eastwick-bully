@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // If you use Pages or any subpath hosting:
-  // basePath: '/eastwick-bully',
-  // assetPrefix: '/eastwick-bully',
-  // trailingSlash: true,
-}
+const isProd = process.env.GITHUB_ACTIONS === 'true';
+const basePath = isProd ? '/eastwick-bully' : '';
 
-export default nextConfig
+export default {
+  output: 'export',
+  basePath,
+  assetPrefix: basePath ? `${basePath}/` : undefined,
+  images: { unoptimized: true },
+  trailingSlash: true,
+};
+
 

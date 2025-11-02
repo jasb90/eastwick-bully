@@ -32,6 +32,9 @@ const THEME = {
 // --- base path helper (works on root domains and subpaths like GitHub Pages) ---
 const BASE = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_BASE_PATH) || "";
 const asset = (p: string) => `${BASE}${p}`;
+// GitHub Pages base path helper
+const PREFIX = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const withPrefix = (p: string) => `${PREFIX}${p}`;
 // -----------------------------
 // TEXTURES + WALL STYLE (with parallax-ready positions)
 // -----------------------------
@@ -68,7 +71,7 @@ const TRACKS = [
     id: "ewb001",
     title: "Soldiers (prod. AudioNarcotics)",
     album: "Underground Broadcasts",
-    src: "/audio/soldiers-prod-audionarcotics-net.mp3",
+    src: withPrefix("/audio/soldiers-prod-audionarcotics-net.mp3"),
     color: THEME.sunset,
     tag: "SOLDIERS",
     x: 10,
@@ -78,7 +81,7 @@ const TRACKS = [
     id: "ewb002",
     title: "Needs MM Purple Smoke",
     album: "Underground Broadcasts",
-    src: "/audio/needs-mm-purple-smoke.mp3",
+    src: withPrefix("/audio/needs-mm-purple-smoke.mp3"),
     color: THEME.neon,
     tag: "PURPLE",
     x: 28,
@@ -88,7 +91,7 @@ const TRACKS = [
     id: "ewb003",
     title: "No Mood Swings",
     album: "Underground Broadcasts",
-    src: "/audio/no-mood-swings.mp3",
+    src: withPrefix("/audio/no-mood-swings.mp3"),
     color: THEME.turnpike,
     tag: "NO MOOD",
     x: 46,
@@ -98,7 +101,7 @@ const TRACKS = [
     id: "ewb004",
     title: "Dopeness ft. Pay-Dro, Rel Right",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/dopeness-ft-pay-dro-rel-right.mp3",
+    src: withPrefix("/audio/dopeness-ft-pay-dro-rel-right.mp3"),
     color: THEME.devils,
     tag: "DOPENESS",
     x: 66,
@@ -108,7 +111,7 @@ const TRACKS = [
     id: "ewb005",
     title: "Rap Life",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/rap-life.mp3",
+    src: withPrefix("/audio/rap-life.mp3"),
     color: THEME.neon,
     tag: "RAP LIFE",
     x: 78,
@@ -118,7 +121,7 @@ const TRACKS = [
     id: "ewb006",
     title: "Liars",
     album: "Underground Broadcasts",
-    src: "/audio/liars.mp3",
+    src: withPrefix("/audio/liars.mp3"),
     color: THEME.sunset,
     tag: "LIARS",
     x: 18,
@@ -128,7 +131,7 @@ const TRACKS = [
     id: "ewb007",
     title: "I'm Looter — Doc Elephant & T.Boston (prod. Sypooda)",
     album: "Underground Broadcasts",
-    src: "/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3",
+    src: withPrefix("/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3"),
     color: THEME.devils,
     tag: "LOOTER",
     x: 38,
@@ -138,7 +141,7 @@ const TRACKS = [
     id: "ewb008",
     title: "40's",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/40s.mp3",
+    src: withPrefix("/audio/40s.mp3"),
     color: THEME.turnpike,
     tag: "40s",
     x: 58,
@@ -148,7 +151,7 @@ const TRACKS = [
     id: "ewb009",
     title: "Lunch Money",
     album: "Street Scripture, Vol. 1",
-    src: "/audio/lunch-money.mp3",
+    src: withPrefix("/audio/lunch-money.mp3"),
     color: THEME.neon,
     tag: "LUNCH",
     x: 24,
@@ -158,7 +161,7 @@ const TRACKS = [
     id: "ewb010",
     title: "TONE SETTERS",
     album: "Underground Broadcasts",
-    src: "/audio/tone-setters.mp3",
+    src: withPrefix("/audio/tone-setters.mp3"),
     color: THEME.devils,
     tag: "TONE",
     x: 32,
