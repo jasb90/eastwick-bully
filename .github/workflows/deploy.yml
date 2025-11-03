@@ -1,8 +1,8 @@
-name: Deploy static site to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -22,14 +22,21 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - run: npm ci
       - run: npm run build
       - run: npm run export
 
-      - uses: actions/upload-pages-artifact@v3
+      # Ensure GitHub Pages serves files exactly as exported
+      - run: echo > out/.nojekyll
+      # If you have a custom domain already set in repo Settings → Pages, this is optional.
+      # Uncomment the next line if you want to bake it in:
+      # - run: echo "ew-bullymusic.com" > out/CNAME
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
 
@@ -40,5 +47,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
