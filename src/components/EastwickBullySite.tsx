@@ -239,13 +239,22 @@ function usePlayer(list: typeof TRACKS) {
     };
   }, []);
 
- useEffect(() => {
-   const el = audioRef.current;
-   if (!el) return;
-   // Prefix with base path so it works on subpath hosting (e.g. GitHub Pages)
-   el.src = asset(current.src);
-   el.play().catch(() => {});
-  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    // ensure we always request from the domain root (no accidental basePath)
+    const p = current.src; // 
+    const url = typeof window !== 'undefined'
+      ? new URL(p, window.location.origin).toString()
+      : p;
+
+    el.src = url;
+    el.play().catch(() => {});
+  }, [index]);
+
 
 
   const toggle = () => {
