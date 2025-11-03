@@ -255,12 +255,25 @@ function usePlayer(list: typeof TRACKS) {
     el.play().catch(() => {});
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = () => {
-    const el = audioRef.current;
-    if (!el) return;
-    if (el.paused) el.play().catch(() => {});
-    else el.pause();
-  };
+ const toggle = async () => {
+  const el = audioRef.current;
+  if (!el) return;
+
+  // resume AudioContext on user gesture (Chrome/iOS requirement)
+  const ac: AudioContext | undefined = (globalThis as any).__ewbAudioCtx;
+  if (ac?.state === "suspended") {
+    try { await ac.resume(); } catch {}
+  }
+
+  // ensure not muted
+  el.muted = false;
+
+  if (el.paused) {
+    try { await el.play(); } catch {}
+  } else {
+    el.pause();
+  }
+};
 
   const next = () => setIndex((i) => (i + 1) % list.length);
   const prev = () => setIndex((i) => (i - 1 + list.length) % list.length);
@@ -299,10 +312,16 @@ function Visualizer({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
     const canvas = canvasRef.current;
     if (!audio || !canvas) return;
 
-    // Reuse a single AudioContext in this component
-    const audioCtx =
-      ctxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
-    ctxRef.current = audioCtx;
+     // Reuse a single AudioContext in this component
+const audioCtx =
+  ctxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+ctxRef.current = audioCtx;
+
+// expose for player toggle (so we can resume on user gesture)
+;(globalThis as any).__ewbAudioCtx = audioCtx;
+
+// force unmute on mount
+audioRef.current!.muted = false;
 
     // Reuse (or create once) the MediaElementSourceNode for this <audio>
     let source = mediaSourceMap.get(audio);
