@@ -159,6 +159,7 @@ const TRACKS = [
   },
 ] as const;
 
+
 // -----------------------------
 // LINKS & VIDEOS
 // -----------------------------
@@ -1031,10 +1032,9 @@ export default function EastwickBullySite() {
       </Section>
 
       {/* FOOTER */}
-      <footer className="mx-auto max-w-6xl px-4 md:px-6 py-10 opacity-80 text-xs">© 2025 Eastwick Bully — Built as a living wall.</footer>
+      <footer className="mx-auto max-w-6xl px-4 md:px-6 py-10 opacity-80 text-xs">
+        © 2025 Eastwick Bully — Built as a living wall.
+      </footer>
     </div>
   );
 }
-/ /  
- c a c h e - b u s t  
- 

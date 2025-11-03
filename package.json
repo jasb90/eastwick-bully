@@ -5,16 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -p 3000"
   },
   "dependencies": {
-    "@fontsource/inter": "^5.0.0",
-    "@fontsource/rubik-wet-paint": "^5.0.0",
-    "framer-motion": "^11.0.0",
-    "lucide-react": "^0.454.0",
-    "next": "^14.2.33",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/rubik-wet-paint": "^5.2.7",
+    "framer-motion": "^11.3.30",
+    "lucide-react": "^0.399.0",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.16",
@@ -23,6 +23,6 @@
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.16",
-    "typescript": "5.9.3"
+    "typescript": "^5.6.2"
   }
 }
