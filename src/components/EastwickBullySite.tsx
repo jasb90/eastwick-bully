@@ -217,6 +217,7 @@ function usePlayer(list: typeof TRACKS) {
 
   const current = list[index];
 
+  // Attach time/play/pause listeners once
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -239,23 +240,20 @@ function usePlayer(list: typeof TRACKS) {
     };
   }, []);
 
-  }, []);
-
+  // Load the current track (force absolute URL from domain root)
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
 
-    // ensure we always request from the domain root (no accidental basePath)
-    const p = current.src; // 
-    const url = typeof window !== 'undefined'
-      ? new URL(p, window.location.origin).toString()
-      : p;
+    const p = current.src; // e.g. "/audio/liars.mp3"
+    const url =
+      typeof window !== "undefined"
+        ? new URL(p, window.location.origin).toString()
+        : p;
 
     el.src = url;
     el.play().catch(() => {});
-  }, [index]);
-
-
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = () => {
     const el = audioRef.current;
