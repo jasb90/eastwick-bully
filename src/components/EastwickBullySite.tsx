@@ -17,6 +17,16 @@ import {
 } from "lucide-react";
 import "@fontsource/inter";
 import "@fontsource/rubik-wet-paint";
+type Track = {
+  id: string;
+  title: string;
+  album?: string;
+  src: string;
+  color?: string;
+  tag?: string;
+  x?: number;
+  y?: number;
+};
 
 // -----------------------------
 // THEME
@@ -64,101 +74,18 @@ const wallTexture = {
 } as const;
 
 // -----------------------------
-// DATA (tracks)
+// CMS tracks (Sanity)
 // -----------------------------
-const TRACKS = [
-  {
-    id: "ewb001",
-    title: "Soldiers (prod. AudioNarcotics)",
-    album: "Underground Broadcasts",
-    src: "/audio/soldiers-prod-audionarcotics-net.mp3",
-    color: THEME.sunset,
-    tag: "SOLDIERS",
-    x: 10, y: 24,
-  },
-  {
-    id: "ewb002",
-    title: "Needs MM Purple Smoke",
-    album: "Underground Broadcasts",
-    src: "/audio/needs-mm-purple-smoke.mp3",
-    color: THEME.neon,
-    tag: "PURPLE",
-    x: 28, y: 40,
-  },
-  {
-    id: "ewb003",
-    title: "No Mood Swings",
-    album: "Underground Broadcasts",
-    src: "/audio/no-mood-swings.mp3",
-    color: THEME.turnpike,
-    tag: "NO MOOD",
-    x: 46, y: 18,
-  },
-  {
-    id: "ewb004",
-    title: "Dopeness ft. Pay-Dro, Rel Right",
-    album: "Street Scripture, Vol. 1",
-    src: "/audio/dopeness-ft-pay-dro-rel-right.mp3",
-    color: THEME.devils,
-    tag: "DOPENESS",
-    x: 66, y: 36,
-  },
-  {
-    id: "ewb005",
-    title: "Rap Life",
-    album: "Street Scripture, Vol. 1",
-    src: "/audio/rap-life.mp3",
-    color: THEME.neon,
-    tag: "RAP LIFE",
-    x: 78, y: 58,
-  },
-  {
-    id: "ewb006",
-    title: "Liars",
-    album: "Underground Broadcasts",
-    src: "/audio/liars.mp3",
-    color: THEME.sunset,
-    tag: "LIARS",
-    x: 18, y: 62,
-  },
-  {
-    id: "ewb007",
-    title: "I'm Looter — Doc Elephant & T.Boston (prod. Sypooda)",
-    album: "Underground Broadcasts",
-    src: "/audio/im-looter-doc-elephant-t-boston-prod-sypooda.mp3",
-    color: THEME.devils,
-    tag: "LOOTER",
-    x: 38, y: 70,
-  },
-  {
-    id: "ewb008",
-    title: "40's",
-    album: "Street Scripture, Vol. 1",
-    src: "/audio/40s.mp3",
-    color: THEME.turnpike,
-    tag: "40s",
-    x: 58, y: 72,
-  },
-  {
-    id: "ewb009",
-    title: "Lunch Money",
-    album: "Street Scripture, Vol. 1",
-    src: "/audio/lunch-money.mp3",
-    color: THEME.neon,
-    tag: "LUNCH",
-    x: 24, y: 84,
-  },
-  {
-    id: "ewb010",
-    title: "TONE SETTERS",
-    album: "Underground Broadcasts",
-    src: "/audio/tone-setters.mp3",
-    color: THEME.devils,
-    tag: "TONE",
-    x: 32, y: 46,
-  },
-] as const;
-
+export type track = {
+  id?: string;
+  title: string;
+  album?: string;
+  src: string;   // absolute URL from Sanity CDN
+  color: string; // hex color like "#FFB000"
+  tag: string;   // short graffiti label
+  x: number;     // left % on wall
+  y: number;     // top % on wall
+};
 
 // -----------------------------
 // LINKS & VIDEOS
@@ -208,7 +135,7 @@ function seededFloat(str: string, min = -5, max = 5) {
 // -----------------------------
 // PLAYER HOOK
 // -----------------------------
-function usePlayer(list: typeof TRACKS) {
+function usePlayer(list: Track[]) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -402,8 +329,8 @@ function GraffitiTag({
   active,
   playing,
 }: {
-  item: (typeof TRACKS)[number];
-  onClick: (i: (typeof TRACKS)[number]) => void;
+  item: Track;
+  onClick: (i: Track) => void;
   active: boolean;
   playing: boolean;
 }) {
@@ -699,23 +626,22 @@ function MiniVHSPreview({ url, title }: { url?: string; title: string }) {
 // -----------------------------
 // SELF-TESTS (non-blocking)
 // -----------------------------
-function runSelfTests() {
   try {
-    const missing = TRACKS.filter((t) => !t.src);
+    const missing = tracks.filter((t) => !t.src);
     if (missing.length) console.warn("[TEST] tracks missing src", missing.map((t) => t.id));
 
-    const badPos = TRACKS.filter((t) => t.x < 0 || t.x > 100 || t.y < 0 || t.y > 100);
+    const badPos = tracks.filter((t) => t.x < 0 || t.x > 100 || t.y < 0 || t.y > 100);
     if (badPos.length) console.warn("[TEST] tags out-of-bounds", badPos.map((t) => t.id));
 
     const ids = new Set<string>();
     const dups: string[] = [];
-    TRACKS.forEach((t) => {
+    tracks.forEach((t) => {
       if (ids.has(t.id)) dups.push(t.id);
       ids.add(t.id);
     });
     if (dups.length) console.error("[TEST] duplicate ids", dups);
 
-    const badSrc = TRACKS.filter(
+    const badSrc = tracks.filter(
       (t) => !(typeof t.src === "string" && t.src.startsWith("/audio/") && t.src.toLowerCase().endsWith(".mp3"))
     );
     if (badSrc.length) console.error("[TEST] bad src format", badSrc);
@@ -727,7 +653,7 @@ function runSelfTests() {
 // -----------------------------
 // MAIN COMPONENT
 // -----------------------------
-export default function EastwickBullySite() {
+export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
   const {
     audioRef,
     current,
@@ -741,13 +667,9 @@ export default function EastwickBullySite() {
     muted,
     setMuted,
     playFromIndex,
-  } = usePlayer(TRACKS);
+  } = usePlayer(tracks);
   const [audioErr, setAudioErr] = useState<null | string>(null);
   const [showIntro, setShowIntro] = useState(true);
-
-  useEffect(() => {
-    runSelfTests();
-  }, []);
 
   // Subtle parallax for background texture layers
   const { scrollY } = useScroll();
@@ -762,7 +684,7 @@ export default function EastwickBullySite() {
   const wallDim = useTransform(scrollY, [0, 800], [0, 0.45]);
 
   // Track index for the special mini preview
-  const toneIndex = TRACKS.findIndex((t) => t.id === "ewb010");
+  const toneIndex = tracks.findIndex((t) => t.id === "ewb010");
 
   return (
     <div
@@ -879,7 +801,7 @@ export default function EastwickBullySite() {
         />
 
         {/* graffiti tags */}
-        {TRACKS.map((t, i) => (
+        {tracks.map((t, i) => (
           <GraffitiTag key={t.id} item={t} active={i === index} playing={playing} onClick={() => playFromIndex(i)} />
         ))}
 

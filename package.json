@@ -10,14 +10,18 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/rubik-wet-paint": "^5.2.7",
+    "@sanity/client": "^7.12.0",
+    "@sanity/image-url": "^1.2.0",
     "@sanity/vision": "^4.13.0",
     "framer-motion": "^11.3.30",
+    "groq": "^4.13.0",
     "lucide-react": "^0.399.0",
     "next": "^15.0.3",
     "next-sanity": "^11.6.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "sanity": "^4.13.0"
+    "sanity": "^4.13.0",
+    "styled-components": "^6.1.19"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.16",
