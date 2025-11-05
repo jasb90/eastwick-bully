@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { NextStudio } from 'next-sanity/studio';
-import config from '../../../sanity/sanity.config';
+import config from '../../../../sanity/sanity.config';
 
 // One place to read the env key
 const ENV_KEY = process.env.NEXT_PUBLIC_ADMIN_KEY;

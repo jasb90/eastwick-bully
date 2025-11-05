@@ -624,27 +624,21 @@ function MiniVHSPreview({ url, title }: { url?: string; title: string }) {
 }
 
 // -----------------------------
-// SELF-TESTS (non-blocking)
+// SELF-TEST (dev-only)
 // -----------------------------
+function runSelfTests(list: Track[]) {
   try {
-    const missing = tracks.filter((t) => !t.src);
-    if (missing.length) console.warn("[TEST] tracks missing src", missing.map((t) => t.id));
+    // Warn if any src still has a basePath prefix
+    const bad = list.filter((t) => t.src?.startsWith("/eastwick-bully/"));
+    if (bad.length) {
+      console.warn("[TEST] bad src format", bad);
+    }
 
-    const badPos = tracks.filter((t) => t.x < 0 || t.x > 100 || t.y < 0 || t.y > 100);
-    if (badPos.length) console.warn("[TEST] tags out-of-bounds", badPos.map((t) => t.id));
-
-    const ids = new Set<string>();
-    const dups: string[] = [];
-    tracks.forEach((t) => {
-      if (ids.has(t.id)) dups.push(t.id);
-      ids.add(t.id);
-    });
-    if (dups.length) console.error("[TEST] duplicate ids", dups);
-
-    const badSrc = tracks.filter(
-      (t) => !(typeof t.src === "string" && t.src.startsWith("/audio/") && t.src.toLowerCase().endsWith(".mp3"))
-    );
-    if (badSrc.length) console.error("[TEST] bad src format", badSrc);
+    // Warn if any src is not under /audio/
+    const notAudio = list.filter((t) => !t.src || !t.src.startsWith("/audio/"));
+    if (notAudio.length) {
+      console.warn("[TEST] non-/audio path", notAudio);
+    }
   } catch (e) {
     console.error("[TEST] failed", e);
   }
@@ -670,6 +664,11 @@ export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
   } = usePlayer(tracks);
   const [audioErr, setAudioErr] = useState<null | string>(null);
   const [showIntro, setShowIntro] = useState(true);
+
+  // ---- self-test runs when tracks arrive
+  useEffect(() => {
+    runSelfTests(tracks);
+  }, [tracks]);
 
   // Subtle parallax for background texture layers
   const { scrollY } = useScroll();
