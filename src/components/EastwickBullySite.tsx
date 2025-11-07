@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import "@fontsource/inter";
 import "@fontsource/rubik-wet-paint";
+type ZoneTLBR = 'tl' | 'tr' | 'ml' | 'mr' | 'bl' | 'br';
+type ZoneLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+
 type Track = {
   id: string;
   title: string;
@@ -26,6 +29,7 @@ type Track = {
   tag?: string;
   x?: number;
   y?: number;
+  zone?: ZoneTLBR | ZoneLetter; // can be tl/tr/... OR A–F (your current entries)
 };
 
 // -----------------------------
@@ -318,26 +322,28 @@ audioRef.current!.muted = false;
 }
 
 // -----------------------------
-// GRAFFITI TAG
+// GRAFFITI TAG (uses computedX/computedY)
 // -----------------------------
+type TrackWithComputed = Track & { computedX: number; computedY: number };
+
 function GraffitiTag({
   item,
   onClick,
   active,
   playing,
 }: {
-  item: Track;
-  onClick: (i: Track) => void;
+  item: TrackWithComputed;
+  onClick: () => void;
   active: boolean;
   playing: boolean;
 }) {
-  const style = { left: `${item.x}%`, top: `${item.y}%` } as const;
+  const style = { left: `${item.computedX}%`, top: `${item.computedY}%` } as const;
   const rotBase = seededFloat(`${item.id}-base`, -5, 5);
   const rotHover = seededFloat(`${item.id}-hover`, -2, 2);
 
   return (
     <motion.button
-      onClick={() => onClick(item)}
+      onClick={onClick}
       aria-label={`Play ${item.title}`}
       className={clsx(
         "absolute select-none",
@@ -359,8 +365,12 @@ function GraffitiTag({
           borderRadius: "6px",
           boxShadow: "0 6px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.4) inset",
         }}
-        animate={active && playing ? { y: [0, -2, 0, 1, 0], rotate: [0, -1, 1, 0] } : undefined}
-        transition={active && playing ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : undefined}
+        animate={
+          active && playing ? { y: [0, -2, 0, 1, 0], rotate: [0, -1, 1, 0] } : undefined
+        }
+        transition={
+          active && playing ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : undefined
+        }
       >
         {item.tag}
         {/* drip dot */}
@@ -640,11 +650,123 @@ function runSelfTests(list: Track[]) {
     console.error("[TEST] failed", e);
   }
 }
+// Map your letters to logical zones
+const LETTER_TO_ZONE: Record<ZoneLetter, ZoneTLBR> = {
+  A: 'tl', // Top-Left
+  B: 'tr', // Top-Right
+  C: 'ml', // Mid-Left
+  D: 'mr', // Mid-Right
+  E: 'bl', // Bottom-Left
+  F: 'br', // Bottom-Right
+};
+
+function normalizeZone(z?: ZoneTLBR | ZoneLetter): ZoneTLBR {
+  if (!z) return 'ml';
+  if (z === 'A' || z === 'B' || z === 'C' || z === 'D' || z === 'E' || z === 'F') {
+    return LETTER_TO_ZONE[z];
+  }
+  return z as ZoneTLBR;
+}
+
+// Bounds for each zone (percent ranges) – desktop
+const DESKTOP_BOUNDS: Record<ZoneTLBR, { x: [number, number]; y: [number, number] }> = {
+  tl: { x: [6, 22],  y: [10, 28] },
+  tr: { x: [78, 94], y: [10, 28] },
+  ml: { x: [10, 30], y: [38, 56] },
+  mr: { x: [70, 90], y: [38, 56] },
+  bl: { x: [10, 30], y: [66, 84] },
+  br: { x: [70, 90], y: [66, 84] },
+};
+
+// On mobile we stack zones top→bottom (wide center lane)
+const MOBILE_ORDER: ZoneTLBR[] = ['tl', 'tr', 'ml', 'mr', 'bl', 'br'];
+
+function layoutTracks(
+  tracks: Track[],
+  viewportWidth: number
+): (Track & { computedX: number; computedY: number })[] {
+  const isMobile = viewportWidth < 720;
+
+  // Group by normalized zone
+  const byZone = new Map<ZoneTLBR, Track[]>();
+  for (const t of tracks) {
+    const z = normalizeZone(t.zone);
+    if (!byZone.has(z)) byZone.set(z, []);
+    byZone.get(z)!.push(t);
+  }
+
+  // Helper to scatter items inside a rectangle without overlap (simple grid)
+  const placeInRect = (
+    items: Track[],
+    rect: { x: [number, number]; y: [number, number] }
+  ) => {
+    const cols = Math.ceil(Math.sqrt(items.length));
+    const rows = Math.ceil(items.length / cols);
+    const results: (Track & { computedX: number; computedY: number })[] = [];
+
+    const xMin = rect.x[0], xMax = rect.x[1];
+    const yMin = rect.y[0], yMax = rect.y[1];
+    const xStep = (xMax - xMin) / Math.max(1, cols);
+    const yStep = (yMax - yMin) / Math.max(1, rows);
+
+    items.forEach((t, idx) => {
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      let cx = xMin + c * xStep + xStep * 0.5;
+      let cy = yMin + r * yStep + yStep * 0.5;
+
+      // tiny jitter so it feels organic
+      cx += (Math.random() - 0.5) * xStep * 0.25;
+      cy += (Math.random() - 0.5) * yStep * 0.25;
+
+      results.push({ ...t, computedX: Math.max(4, Math.min(96, cx)), computedY: Math.max(8, Math.min(92, cy)) });
+    });
+
+    return results;
+  };
+
+  if (!isMobile) {
+    // Desktop: use fixed zone rectangles
+    const out: (Track & { computedX: number; computedY: number })[] = [];
+    for (const [zone, items] of byZone) {
+      out.push(...placeInRect(items, DESKTOP_BOUNDS[zone]));
+    }
+    return out;
+  }
+
+  // Mobile: stack zones vertically with a centered lane
+  const laneX: [number, number] = [12, 88];
+  const zoneHeights: Record<ZoneTLBR, [number, number]> = {} as any;
+
+  const perZoneHeight = 100 / MOBILE_ORDER.length; // split the vertical space
+  MOBILE_ORDER.forEach((z, i) => {
+    zoneHeights[z] = [i * perZoneHeight + 6, (i + 1) * perZoneHeight - 6]; // add padding
+  });
+
+  const out: (Track & { computedX: number; computedY: number })[] = [];
+  for (const z of MOBILE_ORDER) {
+    const items = byZone.get(z) || [];
+    out.push(...placeInRect(items, { x: laneX, y: zoneHeights[z] }));
+  }
+  return out;
+}
 
 // -----------------------------
 // MAIN COMPONENT
 // -----------------------------
 export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
+// Track viewport width (so we can switch desktop/mobile zone layout)
+const [vw, setVw] = useState<number>(
+  typeof window !== "undefined" ? window.innerWidth : 1200
+);
+useEffect(() => {
+  const onResize = () => setVw(window.innerWidth);
+  window.addEventListener("resize", onResize);
+  return () => window.removeEventListener("resize", onResize);
+}, []);
+
+// Compute non-overlapping positions from zones (A–F or tl/tr/…)
+const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw]);
   const {
     audioRef,
     current,
@@ -796,10 +918,20 @@ export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
           style={{ borderColor: THEME.turnpike, boxShadow: `0 0 0 1px ${THEME.devils} inset`, mixBlendMode: "overlay" }}
         />
 
-        {/* graffiti tags */}
-        {tracks.map((t, i) => (
-          <GraffitiTag key={t.id} item={t} active={i === index} playing={playing} onClick={() => playFromIndex(i)} />
-        ))}
+        {/* graffiti tags (non-overlapping) */}
+{placedTracks.map((t) => {
+  // map back to the player’s order
+  const i = tracks.findIndex((x) => x.id === t.id);
+  return (
+    <GraffitiTag
+      key={t.id}
+      item={t}                 // now includes computedX/computedY
+      active={i === index}
+      playing={playing}
+      onClick={() => playFromIndex(i)}
+    />
+  );
+})}
 
         {/* audio */}
      <audio

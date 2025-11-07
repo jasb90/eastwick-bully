@@ -20,6 +20,7 @@ const query = `
   "src": audio.asset->url,
   color,
   tag,
+  zone,
   "x": coalesce(x, 50),
   "y": coalesce(y, 50)
 }
