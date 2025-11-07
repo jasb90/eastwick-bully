@@ -17,20 +17,6 @@ import {
 } from "lucide-react";
 import "@fontsource/inter";
 import "@fontsource/rubik-wet-paint";
-type ZoneTLBR = 'tl' | 'tr' | 'ml' | 'mr' | 'bl' | 'br';
-type ZoneLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
-
-type Track = {
-  id: string;
-  title: string;
-  album?: string;
-  src: string;
-  color?: string;
-  tag?: string;
-  x?: number;
-  y?: number;
-  zone?: ZoneTLBR | ZoneLetter; // can be tl/tr/... OR A–F (your current entries)
-};
 
 // -----------------------------
 // THEME
@@ -43,12 +29,7 @@ const THEME = {
   ink: "#0B0F14", // near-black
   paper: "#F4F1E8", // off-white
 };
-// --- base path helper (works on root domains and subpaths like GitHub Pages) ---
-const BASE = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_BASE_PATH) || "";
-const asset = (p: string) => `${BASE}${p}`;
-// GitHub Pages base path helper
-const PREFIX = process.env.NEXT_PUBLIC_BASE_PATH || '';
-const withPrefix = (p: string) => `${PREFIX}${p}`;
+
 // -----------------------------
 // TEXTURES + WALL STYLE (with parallax-ready positions)
 // -----------------------------
@@ -78,45 +59,18 @@ const wallTexture = {
 } as const;
 
 // -----------------------------
-// CMS tracks (Sanity)
+// TRACK TYPE (from CMS)
 // -----------------------------
-export type track = {
-  id?: string;
+type Track = {
+  id: string;
   title: string;
   album?: string;
-  src: string;   // absolute URL from Sanity CDN
-  color: string; // hex color like "#FFB000"
-  tag: string;   // short graffiti label
-  x: number;     // left % on wall
-  y: number;     // top % on wall
+  src: string;     // absolute URL (Sanity CDN) or site-relative /audio/*.mp3
+  color?: string;  // hex color
+  tag?: string;    // short graffiti label
+  x?: number;      // optional stored manual position (unused when auto-layout)
+  y?: number;
 };
-
-// -----------------------------
-// LINKS & VIDEOS
-// -----------------------------
-const LINKS: { label: string; href: string; Icon: any }[] = [
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/eastside_bully_908?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
-    Icon: Instagram,
-  },
-  {
-    label: "YouTube",
-    href: "https://youtube.com/@eastwickbullyakatommy.bost4527?si=Cx_Y7NCp741XmTnx",
-    Icon: Youtube,
-  },
-  { label: "TikTok", href: "https://www.tiktok.com/@eastwickbully?_r=1&_t=ZT-912zlxaPnvZ", Icon: Video },
-  { label: "Facebook Subscribe", href: "https://www.facebook.com/tommy.boston1/subscribenow", Icon: ExternalLink },
-  { label: "Linktree", href: "#", Icon: LinkIcon },
-];
-
-// Replace this array with real video links when you have them.
-const VIDEOS: { id: string; title: string; url: string }[] = [];
-
-// Mini preview embed for the track "TONE SETTERS"
-const TONE_SETTERS_EMBED: string = ""; // e.g. https://www.youtube.com/embed/VIDEO_ID
-
-const NOTIFY_URL = "https://www.facebook.com/tommy.boston1/subscribenow";
 
 // -----------------------------
 // UTILS
@@ -125,108 +79,113 @@ function clsx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(" ");
 }
 
-// SSR-safe deterministic "random"
-function seededFloat(str: string, min = -5, max = 5) {
+// deterministic jitter so tags don’t jump each render
+function seededFloat(key: string, min: number, max: number) {
   let h = 2166136261 >>> 0; // FNV-1a
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  const n = (h >>> 0) / 2 ** 32;
-  return min + (max - min) * n;
+  const t = (h >>> 0) / 0xffffffff;
+  return min + (max - min) * t;
+}
+
+// viewport width hook (to switch desktop/mobile layout)
+function useViewportWidth() {
+  const [w, setW] = React.useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  React.useEffect(() => {
+    const onR = () => setW(window.innerWidth);
+    window.addEventListener("resize", onR);
+    return () => window.removeEventListener("resize", onR);
+  }, []);
+  return w;
 }
 
 // -----------------------------
-// PLAYER HOOK
+// AUTO-LAYOUT HELPERS (desktop zones + mobile grid)
 // -----------------------------
-function usePlayer(list: Track[]) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [progress, setProgress] = useState(0);
 
-  const current = list[index] ?? null;
+// Desktop zones (A–F) as non-overlapping rectangles in % of the wall
+ type Zone = "A" | "B" | "C" | "D" | "E" | "F";
+ type Rect = { left: number; top: number; right: number; bottom: number };
 
-  // Attach time/play/pause listeners once
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-
-    const onTime = () => {
-      if (!el.duration) return;
-      setProgress((el.currentTime / el.duration) * 100);
-    };
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-
-    el.addEventListener("timeupdate", onTime);
-    el.addEventListener("play", onPlay);
-    el.addEventListener("pause", onPause);
-
-    return () => {
-      el.removeEventListener("timeupdate", onTime);
-      el.removeEventListener("play", onPlay);
-      el.removeEventListener("pause", onPause);
-    };
-  }, []);
-
-  // Load the current track (force absolute URL from domain root)
-  useEffect(() => {
-  const el = audioRef.current;
-  if (!el || !current) return; // guard if no tracks yet
-  const p = current.src;
-  const url = typeof window !== 'undefined'
-    ? new URL(p, window.location.origin).toString()
-    : p;
-  el.src = url;
-  el.play().catch(() => {});
-}, [index, current]);
-
- const toggle = async () => {
-  const el = audioRef.current;
-  if (!el) return;
-
-  // resume AudioContext on user gesture (Chrome/iOS requirement)
-  const ac: AudioContext | undefined = (globalThis as any).__ewbAudioCtx;
-  if (ac?.state === "suspended") {
-    try { await ac.resume(); } catch {}
-  }
-
-  // ensure not muted
-  el.muted = false;
-
-  if (el.paused) {
-    try { await el.play(); } catch {}
-  } else {
-    el.pause();
-  }
+const DESKTOP_BOUNDS: Record<Zone, Rect> = {
+  A: { left: 8,  top: 12, right: 40, bottom: 38 }, // upper-left
+  B: { left: 60, top: 12, right: 92, bottom: 38 }, // upper-right
+  C: { left: 8,  top: 42, right: 40, bottom: 68 }, // mid-left
+  D: { left: 60, top: 42, right: 92, bottom: 68 }, // mid-right
+  E: { left: 8,  top: 70, right: 40, bottom: 92 }, // lower-left
+  F: { left: 60, top: 70, right: 92, bottom: 92 }, // lower-right
 };
 
-  const next = () => setIndex((i) => (i + 1) % list.length);
-  const prev = () => setIndex((i) => (i - 1 + list.length) % list.length);
-  const playFromIndex = (i: number) => setIndex(i);
+// spread N items inside a rectangle (grid + mild jitter)
+function placeInRect(items: Track[], rect: Rect) {
+  const n = items.length;
+  if (n === 0) return [] as (Track & { computedX: number; computedY: number })[];
 
-  return {
-    audioRef,
-    current,
-    index,
-    setIndex,
-    playing,
-    toggle,
-    next,
-    prev,
-    progress,
-    muted,
-    setMuted,
-    playFromIndex,
-  };
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+
+  const left = Math.min(rect.left, rect.right);
+  const right = Math.max(rect.left, rect.right);
+  const top = Math.min(rect.top, rect.bottom);
+  const bottom = Math.max(rect.top, rect.bottom);
+
+  const w = right - left;
+  const h = bottom - top;
+
+  return items.map((it, idx) => {
+    const c = idx % cols;
+    const r = Math.floor(idx / cols);
+    const gx = cols === 1 ? 0.5 : c / (cols - 1);
+    const gy = rows === 1 ? 0.5 : r / (rows - 1);
+    const jitterX = seededFloat(it.id + "-jx", -1.2, 1.2);
+    const jitterY = seededFloat(it.id + "-jy", -1.2, 1.2);
+    const computedX = left + gx * w + jitterX;
+    const computedY = top + gy * h + jitterY;
+    return { ...it, computedX, computedY };
+  });
+}
+
+// desktop layout: distribute tracks round-robin into A..F, then place
+function placeTracksDesktop(tracks: Track[]) {
+  const zones: Zone[] = ["A", "B", "C", "D", "E", "F"];
+  const buckets = new Map<Zone, Track[]>();
+  zones.forEach((z) => buckets.set(z, []));
+
+  tracks.forEach((t, i) => {
+    const z = zones[i % zones.length];
+    buckets.get(z)!.push(t);
+  });
+
+  const out: (Track & { computedX: number; computedY: number })[] = [];
+  for (const z of zones) {
+    out.push(...placeInRect(buckets.get(z)!, DESKTOP_BOUNDS[z]));
+  }
+  return out;
+}
+
+// mobile layout: simple 2 rows × 5 columns grid (with mild jitter)
+function layoutMobileGrid(tracks: Track[]) {
+  const cols = 5;
+  const gapX = 100 / (cols + 1); // leave margins
+  const rowY = [30, 70];         // two rows
+
+  return tracks.map((t, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols) % 2;
+    const baseX = gapX * (col + 1);
+    const jitterX = seededFloat(t.id + "-mx", -3, 3);
+    const jitterY = seededFloat(t.id + "-my", -1.5, 1.5);
+    return { ...t, computedX: baseX + jitterX, computedY: rowY[row] + jitterY };
+  });
 }
 
 // -----------------------------
 // AUDIO VISUALIZER (C)
 // -----------------------------
-// Put this at module scope (top of file, once)
 const mediaSourceMap = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
 
 function Visualizer({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
@@ -240,30 +199,24 @@ function Visualizer({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
     const canvas = canvasRef.current;
     if (!audio || !canvas) return;
 
-     // Reuse a single AudioContext in this component
-const audioCtx =
-  ctxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
-ctxRef.current = audioCtx;
+    const audioCtx =
+      ctxRef.current ?? new (window.AudioContext || (window as any).webkitAudioContext)();
+    ctxRef.current = audioCtx;
+    (globalThis as any).__ewbAudioCtx = audioCtx; // expose for resume
 
-// expose for player toggle (so we can resume on user gesture)
-;(globalThis as any).__ewbAudioCtx = audioCtx;
+    audioRef.current!.muted = false; // force unmute on mount
 
-// force unmute on mount
-audioRef.current!.muted = false;
-
-    // Reuse (or create once) the MediaElementSourceNode for this <audio>
+    // Reuse (or create) media element source once per <audio>
     let source = mediaSourceMap.get(audio);
     if (!source) {
       source = audioCtx.createMediaElementSource(audio);
       mediaSourceMap.set(audio, source);
     }
 
-    // Fresh analyser each mount is fine
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 128;
     analyserRef.current = analyser;
 
-    // Connect: audio -> analyser -> destination (keep destination so you can hear audio)
     source.connect(analyser);
     analyser.connect(audioCtx.destination);
 
@@ -307,10 +260,8 @@ audioRef.current!.muted = false;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", onResize);
       try {
-        analyser.disconnect(); // do NOT disconnect the shared source
+        analyser.disconnect();
       } catch {}
-      // Don't close the shared AudioContext here; dev StrictMode would flip-flop
-      // ctxRef.current?.close();
     };
   }, [audioRef]);
 
@@ -322,17 +273,101 @@ audioRef.current!.muted = false;
 }
 
 // -----------------------------
+// PLAYER HOOK
+// -----------------------------
+function usePlayer(list: Track[]) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const current = list[index] ?? null;
+
+  // Attach time/play/pause listeners once
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    const onTime = () => {
+      if (!el.duration) return;
+      setProgress((el.currentTime / el.duration) * 100);
+    };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("play", onPlay);
+    el.addEventListener("pause", onPause);
+
+    return () => {
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("play", onPlay);
+      el.removeEventListener("pause", onPause);
+    };
+  }, []);
+
+  // Load the current track (force absolute URL from domain root)
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !current) return; // guard if no tracks yet
+    const p = current.src;
+    const url = typeof window !== 'undefined'
+      ? new URL(p, window.location.origin).toString()
+      : p;
+    el.src = url;
+    el.play().catch(() => {});
+  }, [index, current]);
+
+  const toggle = async () => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    // resume AudioContext on user gesture (Chrome/iOS requirement)
+    const ac: AudioContext | undefined = (globalThis as any).__ewbAudioCtx;
+    if (ac?.state === "suspended") {
+      try { await ac.resume(); } catch {}
+    }
+
+    el.muted = false; // ensure not muted
+
+    if (el.paused) {
+      try { await el.play(); } catch {}
+    } else {
+      el.pause();
+    }
+  };
+
+  const next = () => setIndex((i) => (i + 1) % list.length);
+  const prev = () => setIndex((i) => (i - 1 + list.length) % list.length);
+  const playFromIndex = (i: number) => setIndex(i);
+
+  return {
+    audioRef,
+    current,
+    index,
+    setIndex,
+    playing,
+    toggle,
+    next,
+    prev,
+    progress,
+    muted,
+    setMuted,
+    playFromIndex,
+  };
+}
+
+// -----------------------------
 // GRAFFITI TAG (uses computedX/computedY)
 // -----------------------------
-type TrackWithComputed = Track & { computedX: number; computedY: number };
-
 function GraffitiTag({
   item,
   onClick,
   active,
   playing,
 }: {
-  item: TrackWithComputed;
+  item: Track & { computedX: number; computedY: number };
   onClick: () => void;
   active: boolean;
   playing: boolean;
@@ -414,7 +449,7 @@ function PlayerBar({
           <button
             aria-label="Previous"
             onClick={prev}
-            className="p-2 rounded border hover:bg-white/5"
+            className="p-2 rounded border hover:bg.white/5"
             style={{ borderColor: THEME.turnpike }}
           >
             <SkipBack size={18} />
@@ -438,7 +473,7 @@ function PlayerBar({
           <button
             aria-label="Next"
             onClick={next}
-            className="p-2 rounded border hover:bg-white/5"
+            className="p-2 rounded border hover:bg.white/5"
             style={{ borderColor: THEME.turnpike }}
           >
             <SkipForward size={18} />
@@ -481,10 +516,6 @@ function LightingFX() {
           45% { opacity: .96 } 
           50% { opacity: .90 } 
           55% { opacity: .96 } 
-        }
-        @keyframes sweep { 
-          0% { transform: translateX(-30%) } 
-          100% { transform: translateX(30%) } 
         }
         /* Mobile: avoid background-attachment: fixed for smoother scroll */
         @media (max-width: 768px) {
@@ -600,7 +631,6 @@ function VideoEmbed({ url, title }: { url: string; title: string }) {
   );
 }
 
-// Mini VHS preview that shows on the Wall when TONE SETTERS is active
 function MiniVHSPreview({ url, title }: { url?: string; title: string }) {
   const hasEmbed = !!url;
   const youtubeLink = LINKS.find((l) => l.label === "YouTube")?.href || "#";
@@ -613,7 +643,6 @@ function MiniVHSPreview({ url, title }: { url?: string; title: string }) {
               src={url!}
               title={title}
               className="w-full h-full"
-              // Stays paused until user interacts
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
@@ -635,138 +664,46 @@ function MiniVHSPreview({ url, title }: { url?: string; title: string }) {
 // -----------------------------
 function runSelfTests(list: Track[]) {
   try {
-    // Warn if any src still has a basePath prefix
     const bad = list.filter((t) => t.src?.startsWith("/eastwick-bully/"));
-    if (bad.length) {
-      console.warn("[TEST] bad src format", bad);
-    }
+    if (bad.length) console.warn("[TEST] bad src format", bad);
 
-    // Warn if any src is not under /audio/
-    const notAudio = list.filter((t) => !t.src || !t.src.startsWith("/audio/"));
-    if (notAudio.length) {
-      console.warn("[TEST] non-/audio path", notAudio);
-    }
+    const notAudio = list.filter((t) => !t.src || !t.src.includes(".mp3"));
+    if (notAudio.length) console.warn("[TEST] non-mp3 src", notAudio);
   } catch (e) {
     console.error("[TEST] failed", e);
   }
 }
-// Map your letters to logical zones
-const LETTER_TO_ZONE: Record<ZoneLetter, ZoneTLBR> = {
-  A: 'tl', // Top-Left
-  B: 'tr', // Top-Right
-  C: 'ml', // Mid-Left
-  D: 'mr', // Mid-Right
-  E: 'bl', // Bottom-Left
-  F: 'br', // Bottom-Right
-};
 
-function normalizeZone(z?: ZoneTLBR | ZoneLetter): ZoneTLBR {
-  if (!z) return 'ml';
-  if (z === 'A' || z === 'B' || z === 'C' || z === 'D' || z === 'E' || z === 'F') {
-    return LETTER_TO_ZONE[z];
-  }
-  return z as ZoneTLBR;
-}
-
-// Bounds for each zone (percent ranges) – desktop
-const DESKTOP_BOUNDS: Record<ZoneTLBR, { x: [number, number]; y: [number, number] }> = {
-  tl: { x: [6, 22],  y: [10, 28] },
-  tr: { x: [78, 94], y: [10, 28] },
-  ml: { x: [10, 30], y: [38, 56] },
-  mr: { x: [70, 90], y: [38, 56] },
-  bl: { x: [10, 30], y: [66, 84] },
-  br: { x: [70, 90], y: [66, 84] },
-};
-
-// On mobile we stack zones top→bottom (wide center lane)
-const MOBILE_ORDER: ZoneTLBR[] = ['tl', 'tr', 'ml', 'mr', 'bl', 'br'];
-
-function layoutTracks(
-  tracks: Track[],
-  viewportWidth: number
-): (Track & { computedX: number; computedY: number })[] {
-  const isMobile = viewportWidth < 720;
-
-  // Group by normalized zone
-  const byZone = new Map<ZoneTLBR, Track[]>();
-  for (const t of tracks) {
-    const z = normalizeZone(t.zone);
-    if (!byZone.has(z)) byZone.set(z, []);
-    byZone.get(z)!.push(t);
-  }
-
-  // Helper to scatter items inside a rectangle without overlap (simple grid)
-  const placeInRect = (
-    items: Track[],
-    rect: { x: [number, number]; y: [number, number] }
-  ) => {
-    const cols = Math.ceil(Math.sqrt(items.length));
-    const rows = Math.ceil(items.length / cols);
-    const results: (Track & { computedX: number; computedY: number })[] = [];
-
-    const xMin = rect.x[0], xMax = rect.x[1];
-    const yMin = rect.y[0], yMax = rect.y[1];
-    const xStep = (xMax - xMin) / Math.max(1, cols);
-    const yStep = (yMax - yMin) / Math.max(1, rows);
-
-    items.forEach((t, idx) => {
-      const r = Math.floor(idx / cols);
-      const c = idx % cols;
-      let cx = xMin + c * xStep + xStep * 0.5;
-      let cy = yMin + r * yStep + yStep * 0.5;
-
-      // tiny jitter so it feels organic
-      cx += (Math.random() - 0.5) * xStep * 0.25;
-      cy += (Math.random() - 0.5) * yStep * 0.25;
-
-      results.push({ ...t, computedX: Math.max(4, Math.min(96, cx)), computedY: Math.max(8, Math.min(92, cy)) });
-    });
-
-    return results;
-  };
-
-  if (!isMobile) {
-   // Desktop: use fixed zone rectangles
-const out: (Track & { computedX: number; computedY: number })[] = [];
-byZone.forEach((items, zone) => {
-  out.push(...placeInRect(items, DESKTOP_BOUNDS[zone]));
-});
-return out;
-  }
-
-  // Mobile: stack zones vertically with a centered lane
-  const laneX: [number, number] = [12, 88];
-  const zoneHeights: Record<ZoneTLBR, [number, number]> = {} as any;
-
-  const perZoneHeight = 100 / MOBILE_ORDER.length; // split the vertical space
-  MOBILE_ORDER.forEach((z, i) => {
-    zoneHeights[z] = [i * perZoneHeight + 6, (i + 1) * perZoneHeight - 6]; // add padding
-  });
-
-  const out: (Track & { computedX: number; computedY: number })[] = [];
-  for (const z of MOBILE_ORDER) {
-    const items = byZone.get(z) || [];
-    out.push(...placeInRect(items, { x: laneX, y: zoneHeights[z] }));
-  }
-  return out;
-}
+// -----------------------------
+// LINKS & VIDEOS
+// -----------------------------
+const LINKS: { label: string; href: string; Icon: any }[] = [
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/eastside_bully_908?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    Icon: Instagram,
+  },
+  {
+    label: "YouTube",
+    href: "https://youtube.com/@eastwickbullyakatommy.bost4527?si=Cx_Y7NCp741XmTnx",
+    Icon: Youtube,
+  },
+  { label: "TikTok", href: "https://www.tiktok.com/@eastwickbully?_r=1&_t=ZT-912zlxaPnvZ", Icon: Video },
+  { label: "Facebook Subscribe", href: "https://www.facebook.com/tommy.boston1/subscribenow", Icon: ExternalLink },
+  { label: "Linktree", href: "#", Icon: LinkIcon },
+];
+const VIDEOS: { id: string; title: string; url: string }[] = [];
+const TONE_SETTERS_EMBED: string = ""; // e.g. https://www.youtube.com/embed/VIDEO_ID
+const NOTIFY_URL = "https://www.facebook.com/tommy.boston1/subscribenow";
 
 // -----------------------------
 // MAIN COMPONENT
 // -----------------------------
 export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
-// Track viewport width (so we can switch desktop/mobile zone layout)
-const [vw, setVw] = useState<number>(
-  typeof window !== "undefined" ? window.innerWidth : 1200
-);
-useEffect(() => {
-  const onResize = () => setVw(window.innerWidth);
-  window.addEventListener("resize", onResize);
-  return () => window.removeEventListener("resize", onResize);
-}, []);
+  // viewport width → choose layout
+  const vw = useViewportWidth();
+  const placedTracks = vw < 800 ? layoutMobileGrid(tracks) : placeTracksDesktop(tracks);
 
-// Compute non-overlapping positions from zones (A–F or tl/tr/…)
-const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw]);
   const {
     audioRef,
     current,
@@ -781,10 +718,11 @@ const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw])
     setMuted,
     playFromIndex,
   } = usePlayer(tracks);
+
   const [audioErr, setAudioErr] = useState<null | string>(null);
   const [showIntro, setShowIntro] = useState(true);
 
-  // ---- self-test runs when tracks arrive
+  // self-test when tracks arrive
   useEffect(() => {
     runSelfTests(tracks);
   }, [tracks]);
@@ -797,11 +735,7 @@ const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw])
     const y3 = (v * -0.03).toFixed(2); // torn paper (opposite)
     return `center ${y1}px, right 10% calc(15% + ${y2}px), left 5% calc(60% + ${y3}px), center, center, center, center, center`;
   });
-
-  // A-3: strong wall dimmer (0 → 45% fade across ~0→800px scroll)
   const wallDim = useTransform(scrollY, [0, 800], [0, 0.45]);
-
-  // Track index for the special mini preview
   const toneIndex = tracks.findIndex((t) => t.id === "ewb010");
 
   return (
@@ -918,36 +852,32 @@ const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw])
           style={{ borderColor: THEME.turnpike, boxShadow: `0 0 0 1px ${THEME.devils} inset`, mixBlendMode: "overlay" }}
         />
 
-        {/* graffiti tags (non-overlapping) */}
-{placedTracks.map((t) => {
-  // map back to the player’s order
-  const i = tracks.findIndex((x) => x.id === t.id);
-  return (
-    <GraffitiTag
-      key={t.id}
-      item={t}                 // now includes computedX/computedY
-      active={i === index}
-      playing={playing}
-      onClick={() => playFromIndex(i)}
-    />
-  );
-})}
+        {/* graffiti tags (auto-placed) */}
+        {placedTracks.map((t, i) => (
+          <GraffitiTag
+            key={t.id}
+            item={t}
+            active={i === index}
+            playing={playing}
+            onClick={() => playFromIndex(i)}
+          />
+        ))}
 
         {/* audio */}
-     <audio
-  ref={audioRef}
-  preload="metadata"
-  playsInline
-  crossOrigin="anonymous"
-  onEnded={next}
-  muted={muted}
-  onError={(e) =>
-    setAudioErr(
-      (e.currentTarget && (e.currentTarget as HTMLAudioElement).src) ||
-        "Audio failed to load"
-    )
-  }
-/>
+        <audio
+          ref={audioRef}
+          preload="metadata"
+          playsInline
+          crossOrigin="anonymous"
+          onEnded={next}
+          muted={muted}
+          onError={(e) =>
+            setAudioErr(
+              (e.currentTarget && (e.currentTarget as HTMLAudioElement).src) ||
+              "Audio failed to load"
+            )
+          }
+        />
 
         {/* tone setters mini preview */}
         {index === toneIndex && <MiniVHSPreview url={TONE_SETTERS_EMBED} title="Tone Setters" />}
@@ -1033,7 +963,7 @@ const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw])
             discussions that showcase emerging talents and industry veterans alike.
           </p>
           <p className="leading-relaxed text-sm md:text-base mt-4">
-            Eastside Bullie's recent projects, including the much-anticipated "Don't Count Me Out" and the
+            Eastside Bully's recent projects, including the much-anticipated "Don't Count Me Out" and the
             collaborative effort "Nasty Boyz Vol. 1," reflect his growth as an artist and his commitment to pushing the
             boundaries of his sound. These works not only highlight his lyrical prowess but also his versatility as he
             explores various themes and musical styles.
@@ -1109,8 +1039,8 @@ const placedTracks = React.useMemo(() => layoutTracks(tracks, vw), [tracks, vw])
 
       {/* FOOTER */}
       <footer className="mx-auto max-w-6xl px-4 md:px-6 py-10 opacity-80 text-xs">
-  © 2025 Eastwick Bully — Built as a living wall. v2025-11-03-01
-</footer>
+        © 2025 Eastwick Bully — Built as a living wall. v2025-11-04-01
+      </footer>
     </div>
   );
 }
