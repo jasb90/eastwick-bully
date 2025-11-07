@@ -72,6 +72,9 @@ type Track = {
   y?: number;
 };
 
+// preserve original index when laying out so clicks map to the right song
+type Placed = Track & { computedX: number; computedY: number; _idx: number };
+
 // -----------------------------
 // UTILS
 // -----------------------------
@@ -120,10 +123,10 @@ const DESKTOP_BOUNDS: Record<Zone, Rect> = {
   F: { left: 60, top: 70, right: 92, bottom: 92 }, // lower-right
 };
 
-// spread N items inside a rectangle (grid + mild jitter)
-function placeInRect(items: Track[], rect: Rect) {
+// spread N items inside a rectangle (grid + mild jitter) while preserving original index
+function placeInRectGeneric(items: { t: Track; idx: number }[], rect: Rect): Placed[] {
   const n = items.length;
-  if (n === 0) return [] as (Track & { computedX: number; computedY: number })[];
+  if (n === 0) return [];
 
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
@@ -136,51 +139,61 @@ function placeInRect(items: Track[], rect: Rect) {
   const w = right - left;
   const h = bottom - top;
 
-  return items.map((it, idx) => {
-    const c = idx % cols;
-    const r = Math.floor(idx / cols);
+  return items.map(({ t, idx }, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
     const gx = cols === 1 ? 0.5 : c / (cols - 1);
     const gy = rows === 1 ? 0.5 : r / (rows - 1);
-    const jitterX = seededFloat(it.id + "-jx", -1.2, 1.2);
-    const jitterY = seededFloat(it.id + "-jy", -1.2, 1.2);
-    const computedX = left + gx * w + jitterX;
-    const computedY = top + gy * h + jitterY;
-    return { ...it, computedX, computedY };
+    const jx = seededFloat(t.id + "-jx", -1.2, 1.2);
+    const jy = seededFloat(t.id + "-jy", -1.2, 1.2);
+    const computedX = left + gx * w + jx;
+    const computedY = top + gy * h + jy;
+    return { ...t, computedX, computedY, _idx: idx };
   });
 }
 
 // desktop layout: distribute tracks round-robin into A..F, then place
-function placeTracksDesktop(tracks: Track[]) {
+function placeTracksDesktop(tracks: Track[]): Placed[] {
   const zones: Zone[] = ["A", "B", "C", "D", "E", "F"];
-  const buckets = new Map<Zone, Track[]>();
+  const buckets = new Map<Zone, { t: Track; idx: number }[]>();
   zones.forEach((z) => buckets.set(z, []));
 
-  tracks.forEach((t, i) => {
-    const z = zones[i % zones.length];
-    buckets.get(z)!.push(t);
+  tracks.forEach((t, idx) => {
+    const z = zones[idx % zones.length];
+    buckets.get(z)!.push({ t, idx });
   });
 
-  const out: (Track & { computedX: number; computedY: number })[] = [];
+  const out: Placed[] = [];
   for (const z of zones) {
-    out.push(...placeInRect(buckets.get(z)!, DESKTOP_BOUNDS[z]));
+    out.push(...placeInRectGeneric(buckets.get(z)!, DESKTOP_BOUNDS[z]));
   }
   return out;
 }
 
 // mobile layout: simple 2 rows × 5 columns grid (with mild jitter)
-function layoutMobileGrid(tracks: Track[]) {
+function layoutMobileGrid(tracks: Track[]): Placed[] {
   const cols = 5;
-  const gapX = 100 / (cols + 1); // leave margins
-  const rowY = [30, 70];         // two rows
+  const gapX = 100 / (cols + 1);
+  const rowY = [30, 70];
 
-  return tracks.map((t, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols) % 2;
+  return tracks.map((t, idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols) % 2;
     const baseX = gapX * (col + 1);
-    const jitterX = seededFloat(t.id + "-mx", -3, 3);
-    const jitterY = seededFloat(t.id + "-my", -1.5, 1.5);
-    return { ...t, computedX: baseX + jitterX, computedY: rowY[row] + jitterY };
+    const jx = seededFloat(t.id + "-mx", -1.5, 1.5);
+    const jy = seededFloat(t.id + "-my", -0.8, 0.8);
+    return { ...t, computedX: baseX + jx, computedY: rowY[row] + jy, _idx: idx };
   });
+}
+
+function layoutMobileStack(tracks: Track[]): Placed[] {
+  const startY = 18, step = 7.5;
+  return tracks.map((t, idx) => ({
+    ...t,
+    computedX: 50,
+    computedY: startY + idx * step,
+    _idx: idx,
+  }));
 }
 
 // -----------------------------
@@ -367,7 +380,7 @@ function GraffitiTag({
   active,
   playing,
 }: {
-  item: Track & { computedX: number; computedY: number };
+  item: Placed;
   onClick: () => void;
   active: boolean;
   playing: boolean;
@@ -389,7 +402,7 @@ function GraffitiTag({
       style={{ ...style, transform: `rotate(${rotBase}deg)` }}
     >
       <motion.span
-        className="relative inline-block px-3 py-1 md:px-4 md:py-2 text-4xl md:text-6xl uppercase tracking-[0.10em]"
+        className="relative inline-block px-2.5 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 text-2xl sm:text-3xl md:text-5xl uppercase tracking-[0.10em]"
         style={{
           color: item.color,
           fontFamily: "'Rubik Wet Paint', system-ui, sans-serif",
@@ -449,7 +462,7 @@ function PlayerBar({
           <button
             aria-label="Previous"
             onClick={prev}
-            className="p-2 rounded border hover:bg.white/5"
+            className="p-2 rounded border hover:bg-white/5"
             style={{ borderColor: THEME.turnpike }}
           >
             <SkipBack size={18} />
@@ -473,7 +486,7 @@ function PlayerBar({
           <button
             aria-label="Next"
             onClick={next}
-            className="p-2 rounded border hover:bg.white/5"
+            className="p-2 rounded border hover:bg-white/5"
             style={{ borderColor: THEME.turnpike }}
           >
             <SkipForward size={18} />
@@ -702,7 +715,7 @@ const NOTIFY_URL = "https://www.facebook.com/tommy.boston1/subscribenow";
 export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
   // viewport width → choose layout
   const vw = useViewportWidth();
-  const placedTracks = vw < 800 ? layoutMobileGrid(tracks) : placeTracksDesktop(tracks);
+  const placedTracks: Placed[] = vw < 560 ? layoutMobileStack(tracks) : (vw < 800 ? layoutMobileGrid(tracks) : placeTracksDesktop(tracks));
 
   const {
     audioRef,
@@ -857,9 +870,9 @@ export default function EastwickBullySite({ tracks }: { tracks: Track[] }) {
           <GraffitiTag
             key={t.id}
             item={t}
-            active={i === index}
+            active={t._idx === index}
             playing={playing}
-            onClick={() => playFromIndex(i)}
+            onClick={() => playFromIndex(t._idx)}
           />
         ))}
 
