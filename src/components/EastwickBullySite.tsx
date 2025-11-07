@@ -726,12 +726,12 @@ function layoutTracks(
   };
 
   if (!isMobile) {
-    // Desktop: use fixed zone rectangles
-    const out: (Track & { computedX: number; computedY: number })[] = [];
-    for (const [zone, items] of byZone) {
-      out.push(...placeInRect(items, DESKTOP_BOUNDS[zone]));
-    }
-    return out;
+   // Desktop: use fixed zone rectangles
+const out: (Track & { computedX: number; computedY: number })[] = [];
+byZone.forEach((items, zone) => {
+  out.push(...placeInRect(items, DESKTOP_BOUNDS[zone]));
+});
+return out;
   }
 
   // Mobile: stack zones vertically with a centered lane
