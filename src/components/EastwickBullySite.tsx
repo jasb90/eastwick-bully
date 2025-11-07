@@ -142,7 +142,7 @@ function usePlayer(list: Track[]) {
   const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const current = list[index];
+  const current = list[index] ?? null;
 
   // Attach time/play/pause listeners once
   useEffect(() => {
@@ -169,18 +169,15 @@ function usePlayer(list: Track[]) {
 
   // Load the current track (force absolute URL from domain root)
   useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-
-    const p = current.src; // e.g. "/audio/liars.mp3"
-    const url =
-      typeof window !== "undefined"
-        ? new URL(p, window.location.origin).toString()
-        : p;
-
-    el.src = url;
-    el.play().catch(() => {});
-  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
+  const el = audioRef.current;
+  if (!el || !current) return; // guard if no tracks yet
+  const p = current.src;
+  const url = typeof window !== 'undefined'
+    ? new URL(p, window.location.origin).toString()
+    : p;
+  el.src = url;
+  el.play().catch(() => {});
+}, [index, current]);
 
  const toggle = async () => {
   const el = audioRef.current;

@@ -1,15 +1,11 @@
-// src/app/page.tsx
-import { sanityClient } from "@/lib/sanity.client";
-import EastwickBullySite from "@/components/EastwickBullySite";
-
-export const revalidate = 0;              // always fresh
-export const dynamic = "force-dynamic";   // opt out of caching
+import EastwickBullySite from '@/components/EastwickBullySite';
+import { sanityClient } from '@/lib/sanity.client';
 
 type Track = {
   id: string;
   title: string;
   album?: string;
-  src: string;       // direct URL to Sanity file
+  src: string;
   color?: string;
   tag?: string;
   x?: number;
@@ -21,7 +17,6 @@ const query = `
   "id": _id,
   title,
   album,
-  // dereference the file asset -> get public URL
   "src": audio.asset->url,
   color,
   tag,
@@ -31,6 +26,13 @@ const query = `
 `;
 
 export default async function Page() {
-  const tracks = await sanityClient.fetch<Track[]>(query);
-return <EastwickBullySite tracks={tracks} />;
+  let tracks: Track[] = [];
+  try {
+    tracks = await sanityClient.fetch<Track[]>(query);
+  } catch (e) {
+    // fail safe: render the page without crashing
+    console.error('Sanity fetch failed', e);
+    tracks = [];
+  }
+  return <EastwickBullySite tracks={tracks} />;
 }

@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // IMPORTANT:
-  // Do NOT set `output: 'export'` on Vercel.
-  // Do NOT set `basePath`.
+  // keep images unoptimized if you don’t use Next/Image
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
+
 
